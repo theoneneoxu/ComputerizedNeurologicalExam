@@ -10,11 +10,11 @@
 #include <librealsense2/rs.hpp>
 
 //int minH = 0, maxH = 20, minS = 30, maxS = 150, minV = 60, maxV = 255;
-int minH = 0, maxH = 17, minS = 255, maxS = 255, minV = 255, maxV = 255;
+static int minH = 0, maxH = 17, minS = 255, maxS = 255, minV = 255, maxV = 255;
 cv::Mat frame;
 int count = 0;
 
-float innerAngle(float px1, float py1, float px2, float py2, float cx1, float cy1)
+static float innerAngle(float px1, float py1, float px2, float py2, float cx1, float cy1)
 {
 
 	float dist1 = std::sqrt((px1 - cx1)*(px1 - cx1) + (py1 - cy1)*(py1 - cy1));

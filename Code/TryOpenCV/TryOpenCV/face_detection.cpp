@@ -2,18 +2,57 @@
 #include "opencv2/highgui.hpp"
 #include "opencv2/imgproc.hpp"
 #include <iostream>
+
+#include <librealsense2/rs.hpp>
+
+
+
 using namespace std;
 using namespace cv;
 void detectAndDisplay(Mat frame);
-CascadeClassifier face_cascade;
-CascadeClassifier eyes_cascade;
-int main(int argc, const char** argv)
+static CascadeClassifier face_cascade;
+static CascadeClassifier eyes_cascade;
+int maintemp(int argc, const char** argv)
 {
+
+	// Declare depth colorizer for pretty visualization of depth data
+	rs2::colorizer color_map;
+
+	//color_map.set_option(RS2_OPTION_COLOR_SCHEME, 2);
+	color_map.set_option(RS2_OPTION_HISTOGRAM_EQUALIZATION_ENABLED, 0.f);	//fixed scale
+
+
+	rs2::align align_to(RS2_STREAM_COLOR);
+
+
+																			//Contruct a pipeline which abstracts the device
+	rs2::pipeline pipe;
+
+	//Create a configuration for configuring the pipeline with a non default profile
+	rs2::config cfg;
+
+	//Add desired streams to configuration
+	cfg.enable_stream(RS2_STREAM_COLOR, 640, 360, RS2_FORMAT_BGR8, 60);
+	cfg.enable_stream(RS2_STREAM_DEPTH, 848, 480, RS2_FORMAT_Z16, 60);
+
+	//Instruct pipeline to start streaming with the requested configuration
+	pipe.start(cfg);
+
+	// Camera warmup - dropping several first frames to let auto-exposure stabilize
+	rs2::frameset frames;
+
+
+
+
+
+
+
+
 	CommandLineParser parser(argc, argv,
 		"{help h||}"
 		//"{face_cascade|haarcascade_frontalface_alt.xml|Path to face cascade.}"
 		"{face_cascade|lbpcascade_frontalface.xml|Path to face cascade.}"
-		//"{face_cascade|haarcascade_mcs_nose.xml|Path to face cascade.}"
+		//"{face_cascade|Hand.Cascade.1.xml|Path to face cascade.}"
 		"{eyes_cascade|haarcascade_mcs_nose.xml|Path to eyes cascade.}"
 		"{camera|0|Camera device number.}");
 	parser.about("\nThis program demonstrates using the cv::CascadeClassifier class to detect objects (Face + eyes) in a video stream.\n"
@@ -32,6 +71,40 @@ int main(int argc, const char** argv)
 		cout << "--(!)Error loading eyes cascade\n";
 		return -1;
 	};
+
+
+
+	while (true)
+	{
+
+		frames = pipe.wait_for_frames();
+
+		//align depth and color
+		rs2::frameset aligned_frameset = align_to.process(frames);
+
+
+
+
+		//Get each frame
+		rs2::video_frame color_frame = aligned_frameset.get_color_frame();
+
+		cv::Mat cvframe(cv::Size(color_frame.get_width(), color_frame.get_height()), CV_8UC3, (void*)color_frame.get_data(), cv::Mat::AUTO_STEP);
+
+
+		//-- 3. Apply the classifier to the frame
+		detectAndDisplay(cvframe);
+		if (waitKey(10) == 27)
+		{
+			break; // escape
+		}
+
+
+	}
+
+
+
+	/*
+
 	int camera_device = parser.get<int>("camera");
 	VideoCapture capture;
 	//-- 2. Read the video stream
@@ -60,9 +133,14 @@ int main(int argc, const char** argv)
 			break; // escape
 		}
 	}
+
+
+	*/
+
+
 	return 0;
 }
-void detectAndDisplay(Mat frame)
+static void detectAndDisplay(Mat frame)
 {
 	Mat frame_gray;
 	cvtColor(frame, frame_gray, COLOR_BGR2GRAY);
@@ -127,7 +205,7 @@ void detectAndDisplay(Mat frame)
 		std::vector<Rect> eyes;
 		
 		
-		eyes_cascade.detectMultiScale(faceROI, eyes, 1.1, 3);
+		//eyes_cascade.detectMultiScale(faceROI, eyes, 1.1, 3);
 		
 		
 		for (size_t j = 0; j < eyes.size(); j++)
