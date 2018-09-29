@@ -96,15 +96,15 @@ int main(int argc, const char** argv)
 	rs2::frameset frame_set;
 
 
-	const char* windowName = "Fingertip detection";
-	cv::namedWindow(windowName);
-	cv::createTrackbar("MinH", windowName, &minH, 180);
-	cv::createTrackbar("MaxH", windowName, &maxH, 180);
-	cv::createTrackbar("MinS", windowName, &minS, 255);
-	cv::createTrackbar("MaxS", windowName, &maxS, 255);
-	cv::createTrackbar("MinV", windowName, &minV, 255);
-	cv::createTrackbar("MaxV", windowName, &maxV, 255);
-
+	//const char* windowName = "Fingertip detection";
+	//cv::namedWindow(windowName);
+	//cv::createTrackbar("MinH", windowName, &minH, 180);
+	//cv::createTrackbar("MaxH", windowName, &maxH, 180);
+	//cv::createTrackbar("MinS", windowName, &minS, 255);
+	//cv::createTrackbar("MaxS", windowName, &maxS, 255);
+	//cv::createTrackbar("MinV", windowName, &minV, 255);
+	//cv::createTrackbar("MaxV", windowName, &maxV, 255);
+	
 
 	std::ofstream outputFile;
 	outputFile.open("Neo test finger tracking.txt");
@@ -121,8 +121,8 @@ int main(int argc, const char** argv)
 
 	CommandLineParser parser(argc, argv,
 		"{help h||}"
-		//"{face_cascade|haarcascade_frontalface_alt.xml|Path to face cascade.}"
-		"{face_cascade|lbpcascade_frontalface.xml|Path to face cascade.}"
+		"{face_cascade|haarcascade_frontalface_alt.xml|Path to face cascade.}"
+		//"{face_cascade|lbpcascade_frontalface.xml|Path to face cascade.}"
 		//"{face_cascade|Hand.Cascade.1.xml|Path to face cascade.}"
 		"{eyes_cascade|haarcascade_mcs_nose.xml|Path to eyes cascade.}"
 		"{camera|0|Camera device number.}");
@@ -145,10 +145,16 @@ int main(int argc, const char** argv)
 
 
 
+	int th = 0;
+
 
 
 	while (true)
 	{
+		milliseconds ms = duration_cast< milliseconds >(
+			system_clock::now().time_since_epoch()
+			);
+
 
 		frame_set = pipe.wait_for_frames();
 
@@ -156,15 +162,15 @@ int main(int argc, const char** argv)
 		rs2::frameset aligned_frame_set = align_to.process(frame_set);
 		//rs2::frameset aligned_frame_set = frame_set;
 
-		rs2::depth_frame rs_depth_frame = color_map(aligned_frame_set.get_depth_frame());
-		cv::Mat cv_depth_frame(cv::Size(rs_depth_frame.get_width(), rs_depth_frame.get_height()), CV_8UC3, (void*)rs_depth_frame.get_data(), cv::Mat::AUTO_STEP);
+		//rs2::depth_frame rs_depth_frame = color_map(aligned_frame_set.get_depth_frame());
+		rs2::depth_frame rs_depth_frame = aligned_frame_set.get_depth_frame();
+		cv::Mat cv_depth_frame(cv::Size(rs_depth_frame.get_width(), rs_depth_frame.get_height()), CV_16UC1, (void*)rs_depth_frame.get_data(), cv::Mat::AUTO_STEP);
 
 		rs2::video_frame rs_color_frame = aligned_frame_set.get_color_frame();
 		cv::Mat cv_color_frame(cv::Size(rs_color_frame.get_width(), rs_color_frame.get_height()), CV_8UC3, (void*)rs_color_frame.get_data(), cv::Mat::AUTO_STEP);
 		//imshow("input depth", cv_depth_frame);
-		cv::Mat hsv_frame;
-		cv::cvtColor(cv_depth_frame, hsv_frame, CV_BGR2HSV);
-
+		//cv::Mat hsv_frame;
+		//cv::cvtColor(cv_depth_frame, hsv_frame, CV_BGR2HSV);
 
 
 
@@ -197,22 +203,32 @@ int main(int argc, const char** argv)
 		//for face detection
 		face_cascade.detectMultiScale(roi, faces, 1.1, 3, 0, cv::Size(50, 50), cv::Size(200, 200));
 
+		if (faces.size() > 1) {
+			cout << "face size more than 1, it is " << faces.size() << endl;
+		}
+
 		for (size_t i = 0; i < faces.size(); i++)
 		{
 			//Point center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
 			Point center(faces[i].x + faces[i].width / 2 + 160, faces[i].y + faces[i].height / 2 + 60);
 
+			//if ((ms.count() - start_time.count()) / 1000 < 10) {
+				th = rs_depth_frame.get_distance(center.x, center.y) * 1000;
+			//}
+
+
+
 			//nose point
 			circle(cv_color_frame, center, 2, Scalar(255, 0, 255), 4);
-			circle(cv_depth_frame, center, 2, Scalar(255, 0, 255), 4);
+			//circle(cv_depth_frame, center, 2, Scalar(255, 0, 255), 4);
 			//face
 			ellipse(cv_color_frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4);
-			ellipse(cv_depth_frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4);
+			//ellipse(cv_depth_frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4);
 
-			Vec3b& nose_color_hsv = hsv_frame.at<Vec3b>(center);
-			maxH = nose_color_hsv[0] > 0 ? nose_color_hsv[0] - 1 : maxH;
+			//Vec3b& nose_color_hsv = cv_depth_frame.at<Vec3b>(center);
+			//maxH = nose_color_hsv[0] > 0 ? nose_color_hsv[0] - 1 : maxH;
 
-			cout << "maxH = " << maxH << ", nose distance = " << rs_depth_frame.get_distance(center.x, center.y) * 1000 << endl;
+			//cout << "maxH = " << maxH << ", nose distance = " << rs_depth_frame.get_distance(center.x, center.y) * 1000 << endl;
 
 
 			int x = faces[i].x + 160;
@@ -250,23 +266,28 @@ int main(int argc, const char** argv)
 
 
 
+		
+
+
+		threshold(cv_depth_frame, cv_depth_frame, std::min(th, 2000), 0, CV_THRESH_TOZERO_INV);
+		cv_depth_frame.convertTo(cv_depth_frame, CV_8U);
 
 
 
 
-		cv::inRange(hsv_frame, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), hsv_frame);
+		//cv::inRange(hsv_frame, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), hsv_frame);
 		//imshow("after inrange", hsv_frame);
 		// Pre processing
 		int blurSize = 5;
 		int elementSize = 5;
-		cv::medianBlur(hsv_frame, hsv_frame, blurSize);
-		imshow("after median blur", hsv_frame);
+		cv::medianBlur(cv_depth_frame, cv_depth_frame, blurSize);
+		cv::imshow("after median blur", cv_depth_frame);
 		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * elementSize + 1, 2 * elementSize + 1), cv::Point(elementSize, elementSize));
-		cv::dilate(hsv_frame, hsv_frame, element);
+		cv::dilate(cv_depth_frame, cv_depth_frame, element);
 		// Contour detection
 		std::vector<std::vector<cv::Point> > contours;
 		std::vector<cv::Vec4i> hierarchy;
-		cv::findContours(hsv_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+		cv::findContours(cv_depth_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
 		size_t largestContour = 0;
 		for (size_t i = 1; i < contours.size(); i++)
 		{
@@ -282,20 +303,7 @@ int main(int argc, const char** argv)
 			cv::drawContours(cv_depth_frame, hull, 0, cv::Scalar(0, 255, 0), 3);
 			if (hull[0].size() > 2)
 			{
-				/*
-				std::vector<int> hullIndexes;
-				cv::convexHull(cv::Mat(contours[largestContour]), hullIndexes, true);
-				std::vector<cv::Vec4i> convexityDefects;
-				cv::convexityDefects(cv::Mat(contours[largestContour]), hullIndexes, convexityDefects);
-				for (size_t i = 0; i < convexityDefects.size(); i++)
-				{
-				cv::Point p1 = contours[largestContour][convexityDefects[i][0]];
-				cv::Point p2 = contours[largestContour][convexityDefects[i][1]];
-				cv::Point p3 = contours[largestContour][convexityDefects[i][2]];
-				cv::line(frame, p1, p3, cv::Scalar(255, 0, 0), 2);
-				cv::line(frame, p3, p2, cv::Scalar(255, 0, 0), 2);
-				}
-				*/
+
 
 				std::vector<int> hullIndexes;
 				cv::convexHull(cv::Mat(contours[largestContour]), hullIndexes, true);
@@ -338,9 +346,8 @@ int main(int argc, const char** argv)
 				//draw finger point on color too
 				cv::circle(cv_color_frame, fingerPoint, 4, cv::Scalar(255, 0, 0), 3);
 
-				milliseconds ms = duration_cast< milliseconds >(
-					system_clock::now().time_since_epoch()
-					);
+				
+
 
 				double timestamp = (double)(ms.count() - start_time.count()) / 1000;
 
@@ -351,9 +358,12 @@ int main(int argc, const char** argv)
 			}
 		}
 		cv::imshow("depth", cv_depth_frame);
+		
+
+
 
 		//-- Show what you got
-		imshow("color", cv_color_frame);
+		cv::imshow("color", cv_color_frame);
 		
 		
 		if (waitKey(10) == 27)

@@ -113,7 +113,7 @@ void CallbackFunc(int event, int x, int y, int flags, void* userdata)
 	std::cout << pixel << std::endl;
 }
 
-int mainaaaaa()
+int main111()
 {
 
 	// Declare depth colorizer for pretty visualization of depth data
@@ -123,7 +123,7 @@ int mainaaaaa()
 	color_map.set_option(RS2_OPTION_HISTOGRAM_EQUALIZATION_ENABLED, 0.f);	//fixed scale
 
 
-	//Contruct a pipeline which abstracts the device
+																			//Contruct a pipeline which abstracts the device
 	rs2::pipeline pipe;
 
 	//Create a configuration for configuring the pipeline with a non default profile
@@ -131,7 +131,7 @@ int mainaaaaa()
 
 	//Add desired streams to configuration
 	cfg.enable_stream(RS2_STREAM_COLOR, 848, 480, RS2_FORMAT_BGR8, 60);
-	cfg.enable_stream(RS2_STREAM_DEPTH, 848, 480, RS2_FORMAT_Z16, 60);
+	cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
 
 	//Instruct pipeline to start streaming with the requested configuration
 	pipe.start(cfg);
@@ -209,35 +209,31 @@ int mainaaaaa()
 		//Get each frame
 		rs2::frame color_frame = frames.get_color_frame();
 
-		rs2::depth_frame depth = color_map(frames.get_depth_frame());
-		//rs2::depth_frame depth = frames.get_depth_frame();
+		//rs2::depth_frame depth = color_map(frames.get_depth_frame());
+		rs2::depth_frame depth = frames.get_depth_frame();
 
 		// Query frame size (width and height)
 		const int w = depth.get_width();
 		const int h = depth.get_height();
 
-		int memory_size = w * h * 3;
-		unsigned char* test_data = new unsigned char[memory_size];
-		std::fill_n(test_data, memory_size, 0);
-
 		//std::cout << depth.get_distance(640, 360);
-		
+
 		/*
 		for (int i = 0; i < h; i++) {
-			for (int j = 0; j < w; j++) {
-				int value = depth.get_distance(j, i) > 2 ? 0 : 255;
-				int index = (i * w + j) * 3;
-				test_data[index] = value;
-			}
+		for (int j = 0; j < w; j++) {
+		int value = depth.get_distance(j, i) > 2 ? 0 : 255;
+		int index = (i * w + j) * 3;
+		test_data[index] = value;
+		}
 		}
 		*/
 
 
 		// Creating OpenCV Matrix from a color image
 		//cv::Mat cvframe(cv::Size(w, h), CV_8UC3, (void*)depth.get_data(), cv::Mat::AUTO_STEP);
-		cv::Mat cvframe(cv::Size(w, h), CV_8UC3, (void*)depth.get_data(), cv::Mat::AUTO_STEP);
+		cv::Mat cvframe(cv::Size(w, h), CV_16UC1, (void*)depth.get_data(), cv::Mat::AUTO_STEP);
 		frame = cvframe;
-
+		frame.convertTo(frame, CV_8UC3, 255.0/4000);
 		//std::cout << frame;
 
 
@@ -248,18 +244,19 @@ int mainaaaaa()
 
 
 		//cap >> frame;
-		cv::Mat hsv;
-		cv::cvtColor(frame, hsv, CV_BGR2HSV);
+		cv::Mat hsv = cvframe;
+		//cv::cvtColor(frame, hsv, CV_BGR2HSV);
 
 
 		//imshow("hsv", hsv);
 
 
 
-		cv::inRange(hsv, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), hsv);
+		//cv::inRange(hsv, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), hsv);
+		cv::threshold(hsv, hsv, 1200, 0, CV_THRESH_TOZERO_INV);
+		hsv.convertTo(hsv, CV_8U);
 
-		
-		imshow("after inrange", hsv);
+		//imshow("after inrange", hsv);
 
 
 		// Pre processing
@@ -268,6 +265,14 @@ int mainaaaaa()
 		cv::medianBlur(hsv, hsv, blurSize);
 
 		imshow("after median blur", hsv);
+		
+		cv::Rect rect = cv::Rect(0, hsv.size().height / 2, hsv.size().width, hsv.size().height / 2);
+		cv::rectangle(frame, rect, cv::Scalar(0, 255, 0));
+		cv::Mat pRoi = hsv(rect);
+		//pRoi.setTo(cv::Scalar(0, 0, 0));
+		imshow("after remove lower half", hsv);
+
+
 
 		cv::Mat element = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(2 * elementSize + 1, 2 * elementSize + 1), cv::Point(elementSize, elementSize));
 		cv::dilate(hsv, hsv, element);
@@ -284,7 +289,7 @@ int mainaaaaa()
 		cv::drawContours(frame, contours, largestContour, cv::Scalar(0, 0, 255), 1);
 
 
-		//imshow("after contours", frame);
+		imshow("after contours", frame);
 
 
 		// Convex hull
@@ -303,16 +308,16 @@ int mainaaaaa()
 				cv::convexityDefects(cv::Mat(contours[largestContour]), hullIndexes, convexityDefects);
 				for (size_t i = 0; i < convexityDefects.size(); i++)
 				{
-					cv::Point p1 = contours[largestContour][convexityDefects[i][0]];
-					cv::Point p2 = contours[largestContour][convexityDefects[i][1]];
-					cv::Point p3 = contours[largestContour][convexityDefects[i][2]];
-					cv::line(frame, p1, p3, cv::Scalar(255, 0, 0), 2);
-					cv::line(frame, p3, p2, cv::Scalar(255, 0, 0), 2);
+				cv::Point p1 = contours[largestContour][convexityDefects[i][0]];
+				cv::Point p2 = contours[largestContour][convexityDefects[i][1]];
+				cv::Point p3 = contours[largestContour][convexityDefects[i][2]];
+				cv::line(frame, p1, p3, cv::Scalar(255, 0, 0), 2);
+				cv::line(frame, p3, p2, cv::Scalar(255, 0, 0), 2);
 				}
 				*/
 
 
-				
+
 				std::vector<int> hullIndexes;
 				cv::convexHull(cv::Mat(contours[largestContour]), hullIndexes, true);
 				std::vector<cv::Vec4i> convexityDefects;
@@ -338,7 +343,7 @@ int mainaaaaa()
 				{
 					//cv::circle(frame, validPoints[i], 9, cv::Scalar(0, 255, 0), 2);
 				}
-				
+
 				cv::Point fingerPoint;
 				fingerPoint.x = w;
 				fingerPoint.y = h;
@@ -350,16 +355,16 @@ int mainaaaaa()
 					}
 				}
 				cv::circle(frame, fingerPoint, 4, cv::Scalar(255, 0, 0), 3);
-				
-				
-				
-				
+
+
+
+
 				milliseconds ms = duration_cast< milliseconds >(
 					system_clock::now().time_since_epoch()
 					);
-				
+
 				double timestamp = (double)(ms.count() - start_time.count()) / 1000;
-				
+
 				std::cout << "finger x = " << fingerPoint.x << ", y = " << fingerPoint.y << ". Time = " << timestamp << std::endl;
 
 
@@ -371,12 +376,11 @@ int mainaaaaa()
 
 			}
 		}
-		cv::imshow(windowName, frame);
+		imshow("Fingertip detection result", frame);
 		if (cv::waitKey(30) >= 0) break;
 
 
 
-		delete[] test_data;
 
 
 	}
