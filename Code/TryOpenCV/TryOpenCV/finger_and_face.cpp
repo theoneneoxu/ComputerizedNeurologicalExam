@@ -144,9 +144,9 @@ int main(int argc, const char** argv)
 	};
 
 
-
-	int th = 0;
-
+	int face_distance = 1;
+	int th = 1;
+	cv::Rect torso;
 
 
 	while (true)
@@ -212,9 +212,59 @@ int main(int argc, const char** argv)
 			//Point center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
 			Point center(faces[i].x + faces[i].width / 2 + 160, faces[i].y + faces[i].height / 2 + 60);
 
-			//if ((ms.count() - start_time.count()) / 1000 < 10) {
-				th = rs_depth_frame.get_distance(center.x, center.y) * 1000;
-			//}
+			
+			if ((ms.count() - start_time.count()) / 1000 < 12) {
+
+
+				int face_center_x = center.x;
+				int face_center_y = center.y;
+				int face_x_d = faces[i].width / 4;
+				int face_y_d = faces[i].height / 4;
+				std::vector<float> face_point_distances = {
+					rs_depth_frame.get_distance(face_center_x - face_x_d, face_center_y - face_y_d) * 1000,
+					rs_depth_frame.get_distance(face_center_x - face_x_d, face_center_y) * 1000,
+					rs_depth_frame.get_distance(face_center_x - face_x_d, face_center_y + face_y_d) * 1000,
+					rs_depth_frame.get_distance(face_center_x, face_center_y - face_y_d) * 1000,
+					rs_depth_frame.get_distance(face_center_x, face_center_y) * 1000,
+					rs_depth_frame.get_distance(face_center_x, face_center_y + face_y_d) * 1000,
+					rs_depth_frame.get_distance(face_center_x + face_x_d, face_center_y - face_y_d) * 1000,
+					rs_depth_frame.get_distance(face_center_x + face_x_d, face_center_y) * 1000,
+					rs_depth_frame.get_distance(face_center_x + face_x_d, face_center_y + face_y_d) * 1000 };
+
+				/*
+				auto iterator = face_point_distances.begin();
+				while (iterator != face_point_distances.end()) {
+				if (*iterator > face_distance + 50) {
+				iterator = face_point_distances.erase(iterator);
+				}
+				else {
+				iterator++;
+				}
+				}
+				*/
+
+				int new_face_distance = 0;
+				for (int i = 0; i < face_point_distances.size(); i++) {
+					new_face_distance += face_point_distances[i];
+				}
+				if (new_face_distance > 0) {
+					new_face_distance /= face_point_distances.size();
+				}
+				else {
+					new_face_distance = face_distance;
+				}
+
+				double alpha = 0.5;
+				face_distance = (1 - alpha) * face_distance + alpha * new_face_distance;
+
+
+				th = face_distance - 30;
+			}
+
+			
+			
+
+
 
 
 
@@ -269,10 +319,17 @@ int main(int argc, const char** argv)
 		
 
 
-		threshold(cv_depth_frame, cv_depth_frame, std::min(th, 2000), 0, CV_THRESH_TOZERO_INV);
+
+		//threshold(cv_depth_frame, cv_depth_frame, std::min(th, 2000), 0, CV_THRESH_TOZERO_INV);
+		threshold(cv_depth_frame, cv_depth_frame, th, 0, CV_THRESH_TOZERO_INV);
+
 		cv_depth_frame.convertTo(cv_depth_frame, CV_8U);
 
+		cv::rectangle(cv_color_frame, torso, cv::Scalar(255, 255, 255));
 
+		if ((ms.count() - start_time.count()) / 1000 >= 12) {
+			cv_depth_frame(torso).setTo(0);
+		}
 
 
 		//cv::inRange(hsv_frame, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), hsv_frame);
@@ -288,6 +345,24 @@ int main(int argc, const char** argv)
 		std::vector<std::vector<cv::Point> > contours;
 		std::vector<cv::Vec4i> hierarchy;
 		cv::findContours(cv_depth_frame, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
+		
+		//remove small contours
+		cout << "contour size before remove " << contours.size() << endl;
+		//cout << contours.size() << endl;
+		auto iterator = contours.begin();
+		while (iterator != contours.end()) {
+			int size_th = cv_depth_frame.size().width * cv_depth_frame.size().height * 5 / (face_distance + 1);
+			cout << size_th << "  area is " << cv::contourArea(*iterator) << endl;
+			if (cv::contourArea(*iterator) < size_th) {
+				iterator = contours.erase(iterator);
+			}
+			else {
+				iterator++;
+			}
+		}
+		cout << "contour size after remove " << contours.size() << endl;
+
+
 		size_t largestContour = 0;
 		for (size_t i = 1; i < contours.size(); i++)
 		{
@@ -295,6 +370,7 @@ int main(int argc, const char** argv)
 				largestContour = i;
 		}
 		cv::drawContours(cv_depth_frame, contours, largestContour, cv::Scalar(0, 0, 255), 1);
+		
 		// Convex hull
 		if (!contours.empty())
 		{
@@ -310,6 +386,16 @@ int main(int argc, const char** argv)
 				std::vector<cv::Vec4i> convexityDefects;
 				cv::convexityDefects(cv::Mat(contours[largestContour]), hullIndexes, convexityDefects);
 				cv::Rect boundingBox = cv::boundingRect(hull[0]);
+
+
+
+				//for now, first few seconds is used to detect torso
+				if ((ms.count() - start_time.count()) / 1000 < 12) {
+					torso = boundingBox;
+				}
+
+
+
 				cv::rectangle(cv_depth_frame, boundingBox, cv::Scalar(255, 0, 0));
 				cv::Point center = cv::Point(boundingBox.x + boundingBox.width / 2, boundingBox.y + boundingBox.height / 2);
 				std::vector<cv::Point> validPoints;
