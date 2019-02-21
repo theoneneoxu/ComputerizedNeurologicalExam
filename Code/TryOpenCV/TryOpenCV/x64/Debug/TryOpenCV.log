@@ -1,3 +1,10 @@
-﻿  face_detection.cpp
+﻿C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V140\Microsoft.CppBuild.targets(392,5): warning MSB8028: The intermediate directory (x64\Debug\) contains files shared from another project (Prototype.vcxproj).  This can lead to incorrect clean and rebuild behavior.
+  finger_and_face.cpp
+d:\mydata\documents\study\uf\project\computerized neurological exam\code\tryopencv\tryopencv\finger_and_face.cpp(88): warning C4244: '=': conversion from 'double' to 'float', possible loss of data
+d:\mydata\documents\study\uf\project\computerized neurological exam\code\tryopencv\tryopencv\finger_and_face.cpp(263): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+d:\mydata\documents\study\uf\project\computerized neurological exam\code\tryopencv\tryopencv\finger_and_face.cpp(265): warning C4244: '=': conversion from 'double' to 'int', possible loss of data
+d:\mydata\documents\study\uf\project\computerized neurological exam\code\tryopencv\tryopencv\finger_and_face.cpp(379): warning C4267: 'argument': conversion from 'size_t' to 'int', possible loss of data
+d:\mydata\documents\study\uf\project\computerized neurological exam\code\tryopencv\tryopencv\finger_and_face.cpp(403): warning C4244: 'initializing': conversion from 'double' to 'int', possible loss of data
+d:\mydata\documents\study\uf\project\computerized neurological exam\code\tryopencv\tryopencv\finger_and_face.cpp(420): warning C4244: 'argument': conversion from 'int' to 'float', possible loss of data
   TryOpenCV.vcxproj -> D:\MyData\Documents\Study\UF\Project\Computerized Neurological Exam\Code\TryOpenCV\x64\Debug\TryOpenCV.exe
   TryOpenCV.vcxproj -> D:\MyData\Documents\Study\UF\Project\Computerized Neurological Exam\Code\TryOpenCV\x64\Debug\TryOpenCV.pdb (Partial PDB)

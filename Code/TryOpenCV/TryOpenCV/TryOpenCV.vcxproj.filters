@@ -15,55 +15,8 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="BGR_sample.cpp">
+    <ClCompile Include="finger_and_face.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="fingertip.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\myImage.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\roi.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\handGesture.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="IR_sample.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="rs-imshow.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="facial_features.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Trying_Face2.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Trying_Face3.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="face_detection.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\myImage.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\roi.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\handGesture.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\..\References\Example Code\Hand Detection using Color Recognition\VS2013 Version\HandDetection\main.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>

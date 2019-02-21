@@ -14,9 +14,35 @@ void detectAndDisplay(Mat frame);
 CascadeClassifier face_cascade;
 CascadeClassifier eyes_cascade;
 
-#define PREDEFINED_MAX_H 17
 
-int minH = 0, maxH = PREDEFINED_MAX_H, minS = 255, maxS = 255, minV = 255, maxV = 255;
+
+
+
+int calibration_time = 8000; //ms
+
+
+int frame_rate = 60;
+int resolution_width = 848;
+int resolution_height = 480;
+/*
+int frame_rate = 30;
+int resolution_width = 1280;
+int resolution_height = 720;
+*/
+
+int face_detection_offset_width = resolution_width / 4;
+int face_detection_offset_height = resolution_height / 6;
+int face_detaction_width = resolution_width / 2;
+int face_detaction_height = resolution_height * 2 / 3;
+
+
+
+
+
+
+
+
+int minH = 0, maxH = 17, minS = 255, maxS = 255, minV = 255, maxV = 255;
 
 
 float innerAngle(float px1, float py1, float px2, float py2, float cx1, float cy1)
@@ -86,8 +112,8 @@ int main(int argc, const char** argv)
 	rs2::config cfg;
 
 	//Add desired streams to configuration
-	cfg.enable_stream(RS2_STREAM_COLOR, 640, 360, RS2_FORMAT_BGR8, 30);
-	cfg.enable_stream(RS2_STREAM_DEPTH, 1280, 720, RS2_FORMAT_Z16, 30);
+	cfg.enable_stream(RS2_STREAM_COLOR, resolution_width, resolution_height, RS2_FORMAT_BGR8, frame_rate);
+	cfg.enable_stream(RS2_STREAM_DEPTH, resolution_width, resolution_height, RS2_FORMAT_Z16, frame_rate);
 
 	//Instruct pipeline to start streaming with the requested configuration
 	pipe.start(cfg);
@@ -96,18 +122,10 @@ int main(int argc, const char** argv)
 	rs2::frameset frame_set;
 
 
-	//const char* windowName = "Fingertip detection";
-	//cv::namedWindow(windowName);
-	//cv::createTrackbar("MinH", windowName, &minH, 180);
-	//cv::createTrackbar("MaxH", windowName, &maxH, 180);
-	//cv::createTrackbar("MinS", windowName, &minS, 255);
-	//cv::createTrackbar("MaxS", windowName, &maxS, 255);
-	//cv::createTrackbar("MinV", windowName, &minV, 255);
-	//cv::createTrackbar("MaxV", windowName, &maxV, 255);
 	
 
 	std::ofstream outputFile;
-	outputFile.open("Neo test finger tracking.txt");
+	outputFile.open("Finger Tracking.txt");
 
 	using namespace std::chrono;
 	milliseconds start_time = duration_cast< milliseconds >(
@@ -118,7 +136,7 @@ int main(int argc, const char** argv)
 
 
 
-
+	//OpenCV Cascade
 	CommandLineParser parser(argc, argv,
 		"{help h||}"
 		"{face_cascade|haarcascade_frontalface_alt.xml|Path to face cascade.}"
@@ -146,31 +164,37 @@ int main(int argc, const char** argv)
 
 	int face_distance = 1;
 	int th = 1;
+
+	//body part set to block in depth
 	cv::Rect torso;
+
+	//fingertip point
+	cv::Point fingerPoint;
+
+	bool calibration_flag = false;
+
 
 
 	while (true)
 	{
+		//first few seconds are used to calibrate.
 		milliseconds ms = duration_cast< milliseconds >(
 			system_clock::now().time_since_epoch()
 			);
+		calibration_flag = (ms.count() - start_time.count()) < calibration_time;
+		
 
 
 		frame_set = pipe.wait_for_frames();
 
 		//align depth and color
 		rs2::frameset aligned_frame_set = align_to.process(frame_set);
-		//rs2::frameset aligned_frame_set = frame_set;
 
-		//rs2::depth_frame rs_depth_frame = color_map(aligned_frame_set.get_depth_frame());
 		rs2::depth_frame rs_depth_frame = aligned_frame_set.get_depth_frame();
 		cv::Mat cv_depth_frame(cv::Size(rs_depth_frame.get_width(), rs_depth_frame.get_height()), CV_16UC1, (void*)rs_depth_frame.get_data(), cv::Mat::AUTO_STEP);
 
 		rs2::video_frame rs_color_frame = aligned_frame_set.get_color_frame();
 		cv::Mat cv_color_frame(cv::Size(rs_color_frame.get_width(), rs_color_frame.get_height()), CV_8UC3, (void*)rs_color_frame.get_data(), cv::Mat::AUTO_STEP);
-		//imshow("input depth", cv_depth_frame);
-		//cv::Mat hsv_frame;
-		//cv::cvtColor(cv_depth_frame, hsv_frame, CV_BGR2HSV);
 
 
 
@@ -189,7 +213,7 @@ int main(int argc, const char** argv)
 		std::vector<Rect> faces;
 		Mat small_frame;
 		frame_gray;
-		Rect region_of_interest = Rect(160, 60, 320, 240);
+		Rect region_of_interest = Rect(face_detection_offset_width, face_detection_offset_height, face_detaction_width, face_detaction_height);
 		cv::rectangle(cv_color_frame, region_of_interest, cv::Scalar(0, 255, 0));
 		Mat roi = frame_gray(region_of_interest);
 
@@ -201,7 +225,7 @@ int main(int argc, const char** argv)
 		//face_cascade.detectMultiScale(roi, faces, 1.1, 3);
 
 		//for face detection
-		face_cascade.detectMultiScale(roi, faces, 1.1, 3, 0, cv::Size(50, 50), cv::Size(200, 200));
+		face_cascade.detectMultiScale(roi, faces, 1.1, 3, 0, cv::Size(resolution_width / 10, resolution_width / 10), cv::Size(resolution_width / 4, resolution_width / 4));
 
 		if (faces.size() > 1) {
 			cout << "face size more than 1, it is " << faces.size() << endl;
@@ -210,55 +234,37 @@ int main(int argc, const char** argv)
 		for (size_t i = 0; i < faces.size(); i++)
 		{
 			//Point center(faces[i].x + faces[i].width / 2, faces[i].y + faces[i].height / 2);
-			Point center(faces[i].x + faces[i].width / 2 + 160, faces[i].y + faces[i].height / 2 + 60);
+			Point center(faces[i].x + faces[i].width / 2 + face_detection_offset_width, faces[i].y + faces[i].height / 2 + face_detection_offset_height);
 
 			
-			if ((ms.count() - start_time.count()) / 1000 < 12) {
+			//if (fingerPoint.x < center.x - faces[i].width / 2 || fingerPoint.x > center.x + faces[i].width / 2 || fingerPoint.y < center.y - faces[i].height / 2 || fingerPoint.y > center.y + faces[i].height / 2) 
+			{
 
 
 				int face_center_x = center.x;
 				int face_center_y = center.y;
 				int face_x_d = faces[i].width / 4;
 				int face_y_d = faces[i].height / 4;
-				std::vector<float> face_point_distances = {
-					rs_depth_frame.get_distance(face_center_x - face_x_d, face_center_y - face_y_d) * 1000,
-					rs_depth_frame.get_distance(face_center_x - face_x_d, face_center_y) * 1000,
-					rs_depth_frame.get_distance(face_center_x - face_x_d, face_center_y + face_y_d) * 1000,
-					rs_depth_frame.get_distance(face_center_x, face_center_y - face_y_d) * 1000,
-					rs_depth_frame.get_distance(face_center_x, face_center_y) * 1000,
-					rs_depth_frame.get_distance(face_center_x, face_center_y + face_y_d) * 1000,
-					rs_depth_frame.get_distance(face_center_x + face_x_d, face_center_y - face_y_d) * 1000,
-					rs_depth_frame.get_distance(face_center_x + face_x_d, face_center_y) * 1000,
-					rs_depth_frame.get_distance(face_center_x + face_x_d, face_center_y + face_y_d) * 1000 };
 
-				/*
-				auto iterator = face_point_distances.begin();
-				while (iterator != face_point_distances.end()) {
-				if (*iterator > face_distance + 50) {
-				iterator = face_point_distances.erase(iterator);
-				}
-				else {
-				iterator++;
-				}
-				}
-				*/
 
-				int new_face_distance = 0;
-				for (int i = 0; i < face_point_distances.size(); i++) {
-					new_face_distance += face_point_distances[i];
-				}
-				if (new_face_distance > 0) {
-					new_face_distance /= face_point_distances.size();
-				}
-				else {
-					new_face_distance = face_distance;
-				}
 
+				int face_distance_sample_count = 0;
+				float face_distance_sample_sum = 0;
+				for (int i = -1; i <= 1; i++) {
+					for (int j = -1; j <= 1; j++) {
+						float distance = rs_depth_frame.get_distance(face_center_x + face_x_d * i, face_center_y + face_y_d * j) * 1000;
+						if (distance > 0) {
+							face_distance_sample_sum += distance;
+							face_distance_sample_count++;
+						}
+					}
+				}
+				//used average distance of multiple points to be face distance
+				int new_face_distance = face_distance_sample_count > 0 ? face_distance_sample_sum / face_distance_sample_count : face_distance;
 				double alpha = 0.5;
 				face_distance = (1 - alpha) * face_distance + alpha * new_face_distance;
-
-
 				th = face_distance - 30;
+
 			}
 
 			
@@ -272,7 +278,7 @@ int main(int argc, const char** argv)
 			circle(cv_color_frame, center, 2, Scalar(255, 0, 255), 4);
 			//circle(cv_depth_frame, center, 2, Scalar(255, 0, 255), 4);
 			//face
-			ellipse(cv_color_frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4);
+			ellipse(cv_color_frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, resolution_height, Scalar(255, 0, 255), 4);
 			//ellipse(cv_depth_frame, center, Size(faces[i].width / 2, faces[i].height / 2), 0, 0, 360, Scalar(255, 0, 255), 4);
 
 			//Vec3b& nose_color_hsv = cv_depth_frame.at<Vec3b>(center);
@@ -281,21 +287,18 @@ int main(int argc, const char** argv)
 			//cout << "maxH = " << maxH << ", nose distance = " << rs_depth_frame.get_distance(center.x, center.y) * 1000 << endl;
 
 
-			int x = faces[i].x + 160;
-			int y = faces[i].y + 60;
+			int x = faces[i].x + face_detection_offset_width;
+			int y = faces[i].y + face_detection_offset_height;
 			int width = faces[i].width;
 			int height = faces[i].height;
 
 			Rect noseRect = Rect(x, y, width, height);
 			cv::Point pt1(x, y);
 			cv::Point pt2(x + width, y + height);
-			//cv::rectangle(frame, pt1, pt2, cv::Scalar(0, 255, 0));
 
 			cv::Point pt3(faces[i].x, faces[i].y);
 			cv::Point pt4(faces[i].x + faces[i].width, faces[i].y + faces[i].height);
-			//cv::rectangle(frame, pt3, pt4, cv::Scalar(255, 255, 0));
 
-			//Mat faceROI = frame_gray(faces[i]);
 			Mat faceROI = frame_gray(noseRect);
 
 			//-- In each face, detect eyes
@@ -305,7 +308,7 @@ int main(int argc, const char** argv)
 
 			for (size_t j = 0; j < eyes.size(); j++)
 			{
-				Point eye_center(faces[i].x + eyes[j].x + eyes[j].width / 2 + 160, faces[i].y + eyes[j].y + eyes[j].height / 2 + 60);
+				Point eye_center(faces[i].x + eyes[j].x + eyes[j].width / 2 + face_detection_offset_width, faces[i].y + eyes[j].y + eyes[j].height / 2 + face_detection_offset_height);
 				int radius = cvRound((eyes[j].width + eyes[j].height)*0.2);
 				circle(cv_color_frame, eye_center, radius, Scalar(255, 0, 0), 4);
 			}
@@ -327,9 +330,13 @@ int main(int argc, const char** argv)
 
 		cv::rectangle(cv_color_frame, torso, cv::Scalar(255, 255, 255));
 
-		if ((ms.count() - start_time.count()) / 1000 >= 12) {
+		//after calibration, always block body part in depth input
+		if (!calibration_flag) {
 			cv_depth_frame(torso).setTo(0);
 		}
+
+
+
 
 
 		//cv::inRange(hsv_frame, cv::Scalar(minH, minS, minV), cv::Scalar(maxH, maxS, maxV), hsv_frame);
@@ -351,7 +358,7 @@ int main(int argc, const char** argv)
 		//cout << contours.size() << endl;
 		auto iterator = contours.begin();
 		while (iterator != contours.end()) {
-			int size_th = cv_depth_frame.size().width * cv_depth_frame.size().height * 5 / (face_distance + 1);
+			int size_th = cv_depth_frame.size().width * cv_depth_frame.size().height * 3 / (face_distance + 1);
 			cout << size_th << "  area is " << cv::contourArea(*iterator) << endl;
 			if (cv::contourArea(*iterator) < size_th) {
 				iterator = contours.erase(iterator);
@@ -390,7 +397,12 @@ int main(int argc, const char** argv)
 
 
 				//for now, first few seconds is used to detect torso
-				if ((ms.count() - start_time.count()) / 1000 < 12) {
+				if (calibration_flag) {
+					boundingBox.x = 0;
+					boundingBox.width = resolution_width;
+					int extra = boundingBox.y * 0.03;
+					boundingBox.y -= extra;
+					boundingBox.height += extra;
 					torso = boundingBox;
 				}
 
@@ -412,43 +424,43 @@ int main(int argc, const char** argv)
 						validPoints.push_back(p1);
 					}
 				}
-				for (size_t i = 0; i < validPoints.size(); i++)
-				{
-					//cv::circle(frame, validPoints[i], 9, cv::Scalar(0, 255, 0), 2);
-				}
 
-				cv::Point fingerPoint;
 				fingerPoint.x = rs_depth_frame.get_width();
 				fingerPoint.y = rs_depth_frame.get_height();
-				for (size_t i = 0; i < validPoints.size(); i++)
-				{
-					if (validPoints[i].y < fingerPoint.y)
+				for (auto& p : validPoints) {
+					if (p.y < fingerPoint.y)
 					{
-						fingerPoint = validPoints[i];
+						fingerPoint = p;
 					}
 				}
-				cv::circle(cv_depth_frame, fingerPoint, 4, cv::Scalar(255, 0, 0), 3);
 
-				//draw finger point on color too
-				cv::circle(cv_color_frame, fingerPoint, 4, cv::Scalar(255, 0, 0), 3);
+				if (!calibration_flag) {
+					//draw finger point on depth image
+					cv::circle(cv_depth_frame, fingerPoint, 4, cv::Scalar(255, 0, 0), 3);
 
-				
+					//draw finger point on color image
+					cv::circle(cv_color_frame, fingerPoint, 4, cv::Scalar(255, 0, 0), 3);
+				}
 
 
-				double timestamp = (double)(ms.count() - start_time.count()) / 1000;
 
-				//std::cout << "finger x = " << fingerPoint.x << ", y = " << fingerPoint.y << ". Time = " << timestamp << std::endl;
 
-				outputFile << "finger x = " << fingerPoint.x << ", y = " << fingerPoint.y << ". Time = " << timestamp << std::endl;
+				if (!calibration_flag) {
+					double timestamp = (double)(ms.count() - start_time.count()) - calibration_time;
+					//outputFile << "Fingertip x = " << fingerPoint.x << ", y = " << fingerPoint.y << ". Time = " << timestamp << " ms." << std::endl;
+					outputFile << "Fingertip x = " << fingerPoint.x << ", y = " << fingerPoint.y << ". Time = " << timestamp << " ms." << std::endl;
+				}
 
 			}
 		}
+
+
 		cv::imshow("depth", cv_depth_frame);
-		
 
+		if (calibration_flag) {
+			putText(cv_color_frame, "Calibrating, please sit straight and don't move.", cvPoint(resolution_width / 10, resolution_height / 10), FONT_HERSHEY_SIMPLEX, 0.8, cvScalar(0, 255, 255), 1, CV_AA);
+		}
 
-
-		//-- Show what you got
 		cv::imshow("color", cv_color_frame);
 		
 		
